@@ -7,6 +7,8 @@ var DNSPacket = dns.DNSPacket;
 var path = require('path');
 var fs = require('fs');
 
+var Schemas = require('./schemas');
+
 var fixtureFolder = path.join(__dirname, 'fixtures');
 var fixturesFolderDecoded = path.join(fixtureFolder, 'decoded-sections');
 var fixturesFolderMessages = path.join(fixtureFolder, 'decoded-messages');
@@ -38,9 +40,24 @@ function testDecodeSection (binFolder, jsFolder) {
         authority: {},
         additional: {}
       };
+      count=0;
+      expected=0;
       for (var key in obj) {
+        expected++;
+        console.log(key);
         if (!obj.hasOwnProperty(key)) {continue;}
         decoder.decodeSection(packet, key, obj[key]);
+        if (Schemas.hasOwnProperty(key)) {
+          Schemas.validate(obj[key], Schemas[key], function (err) {
+            if (err) {
+              throw err;
+            }
+            count++;
+          });
+        }
+        else {
+          throw new Error('Missing schema ' + key);
+        }
       }
       if (!fs.existsSync(djsFile)) {
         helper.writeJs(djsFile, obj);
@@ -49,7 +66,16 @@ function testDecodeSection (binFolder, jsFolder) {
         var dj = helper.readJs(djsFile);
         helper.equalDeep(dj, obj);
       }
-      done();
+      setTimeout(function () {
+        if (count >= expected) {
+          done();
+        }
+        else {
+          done('all schemas not validated');
+        }
+      }, 50);
+
+
     });//--decode...
   });
 }
@@ -77,6 +103,15 @@ function testDecodeMessage (binFolder, jsFolder) {
       for (var key in obj) {
         if (!obj.hasOwnProperty(key)) {continue;}
         decoder.decodeSection(packet, key, obj[key]);
+        if (Schemas.hasOwnProperty(key)) {
+          Schemas.validate(obj[key], Schemas[key], function (err) {
+            throw err;
+          });
+        }
+        else {
+          throw new Error('Missing schema ' + key);
+        }
+
       }
       if (!fs.existsSync(djsFile)) {
         helper.writeJs(djsFile, obj);
@@ -85,6 +120,7 @@ function testDecodeMessage (binFolder, jsFolder) {
         var dj = helper.readJs(djsFile);
         helper.equalDeep(dj, obj);
       }
+
       done();
     });//--decode...
   });
